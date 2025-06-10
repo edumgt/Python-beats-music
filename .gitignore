@@ -1,0 +1,28 @@
+# Python 가상환경
+venv/
+__pycache__/
+*.pyc
+
+# 서비스 계정 키 파일 (구글, AWS 등)
+*.json
+
+# IDE 관련 파일
+.vscode/
+.idea/
+
+# OS 관련
+.DS_Store
+Thumbs.db
+
+# 로그 파일
+*.log
+
+# 환경 설정 파일 (예: .env)
+.env
+
+# 키
+edumgt-key
+
+*.mp4
+*.mp3
+*.py
