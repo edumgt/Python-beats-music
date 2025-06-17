@@ -1,3 +1,0 @@
-file 'C:\edumgt-test\pytest\music0001.mp4'
-file 'C:\edumgt-test\pytest\music0001.mp4'
-file 'C:\edumgt-test\pytest\music0001.mp4'
