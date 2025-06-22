@@ -28,3 +28,5 @@ edumgt-key
 *.py
 
 /r*
+
+*.wav
