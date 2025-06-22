@@ -2,7 +2,7 @@
 venv/
 __pycache__/
 *.pyc
-
+/v*
 # 서비스 계정 키 파일 (구글, AWS 등)
 *.json
 
@@ -29,4 +29,3 @@ edumgt-key
 
 /r*
 
-*.wav
