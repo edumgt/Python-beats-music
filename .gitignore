@@ -27,6 +27,6 @@ edumgt-key
 *.mp4
 *.mp3
 *.py
-
+*.wav
 /r*
 
