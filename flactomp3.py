@@ -10,4 +10,4 @@ def convert_flac_to_mp3(input_path, output_path, bitrate="320k"):
         print(f"❌ Error converting {input_path}: {e}")
 
 # 예시 사용
-convert_flac_to_mp3("11.flac", "11.mp3")
+convert_flac_to_mp3("a.flac", "a.mp3")
