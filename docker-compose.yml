@@ -21,6 +21,18 @@ services:
     depends_on:
       - redis
 
+  trainer:
+    build:
+      context: .
+      dockerfile: Dockerfile.trainer
+    volumes:
+      - ./data:/data
+      - ./ml:/workspace/ml
+      - ./app:/workspace/app
+      - ./tools:/workspace/tools
+    profiles:
+      - training
+
   redis:
     image: redis:7
     ports:
