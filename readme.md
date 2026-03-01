@@ -1,39 +1,71 @@
 # Python Beats Music2
 
 이 프로젝트는 **Python 기반의 오디오/비디오 편집 및 비트 제작 스크립트 모음**입니다.  
-단일 웹 프레임워크 앱이라기보다, 목적별 유틸리티 스크립트를 조합해 사용하는 형태입니다.
+기존 스크립트 방식은 유지하면서, MP3 업로드 기반의 **AI 편곡 백엔드(FastAPI + Celery)** 를 추가했습니다.
 
 ## 기술 스택
 
 ### 1) 언어/실행 환경
-- **Python 3.x**
-- 스크립트 중심 CLI 실행 방식 (`python <script>.py`)
+- **Python 3.11**
+- 스크립트 중심 CLI 실행 + FastAPI 서비스
 
-### 2) 오디오 처리 핵심
-- **pydub**: MP3/WAV 로드, 병합, 구간 자르기, 무음 생성/제거, 포맷 변환
-- **librosa**: BPM 감지, 피치 시프트, 타임 스트레치
-- **numpy**: 파형(신호) 수치 연산, 샘플 합성, 패딩/루프 처리
-- **scipy / soundfile**: WAV 파일 I/O, 오디오 데이터 저장
+### 2) 백엔드/API
+- **FastAPI + Uvicorn**: 업로드/상태 조회/다운로드 API
+- **Celery + Redis**: 비동기 오디오 작업 큐
+- **Pydantic Settings**: 환경변수 설정 관리
 
-### 3) 비디오/미디어 변환
-- **ffmpeg-python (`ffmpeg`)**: 영상에서 오디오 추출, 포맷 변환, 인코딩 파이프라인 제어
-- (시스템 의존) **FFmpeg 바이너리**: `pydub`, `ffmpeg-python` 동작을 위한 외부 런타임
+### 3) 오디오 처리 핵심
+- **pydub**: MP3 로드/합성/인코딩
+- **ffmpeg**: MP3 처리용 시스템 런타임
+- (기존) **librosa / numpy / scipy / soundfile**: 스크립트 기반 실험 처리
 
-### 4) AI/고급 처리 관련 라이브러리
-- **openai / dotenv**: LLM 연동 스크립트(환경변수 기반 설정)
-- **rembg / PIL / cv2(OpenCV)**: 이미지/영상 배경 제거 및 후처리
-
-### 5) 실시간/입출력 및 유틸
-- **sounddevice / soundcard / wave**: 오디오 입출력 및 장치 기반 처리
-- **os, subprocess, glob, random** 등 표준 라이브러리: 파일 탐색, 프로세스 실행, 배치 자동화
+### 4) 기존 유틸 스크립트
+- 비트 제작/루프 생성
+- 오디오 편집(MP3↔WAV, 자르기, 합치기)
+- 영상 보조 처리(오디오 추출)
 
 ---
 
-## 프로젝트 성격 요약
+## 신규 백엔드 아키텍처 요약
 
-- **비트 제작/루프 생성**: 드럼 샘플 조합, BPM 맞춤, 자동 루프 생성
-- **오디오 편집**: 자르기, 합치기, 무음 제거, MP3↔WAV 변환
-- **영상 보조 처리**: 영상에서 오디오 추출 및 후속 편집
-- **실험형 스크립트 구조**: `working*.py`, `make*.py` 등 목적 단위 파일로 빠르게 실험/제작
+- `/jobs`로 MP3 업로드 + `rights_confirmed=true` 확인
+- Celery worker가 원본 재사용 없이 신규 피아노 반주 MP3 생성
+- `/jobs/{job_id}`로 상태 조회 (`queued/processing/done/failed`)
+- `/outputs/{filename}`로 결과 다운로드
 
-원하면 다음 단계로 `requirements.txt`와 실행 예시(Quick Start)까지 정리해 드릴게요.
+> 저작권 리스크를 낮추기 위해, 원본 음원을 직접 변형/재배포하지 않고 길이/분위기만 참고한 신규 피아노 합성 결과물을 생성하도록 구성했습니다.
+
+---
+
+## 빠른 시작 (Docker Compose)
+
+```bash
+cp .env.example .env
+mkdir -p data/uploads data/outputs
+docker compose up --build
+```
+
+서버 실행 후:
+- Health: `GET http://localhost:8000/health`
+- API docs: `http://localhost:8000/docs`
+
+### 업로드 예시
+
+```bash
+curl -X POST http://localhost:8000/jobs \
+  -F "file=@sample.mp3" \
+  -F "rights_confirmed=true" \
+  -F "dramatic_level=8"
+```
+
+반환된 `job_id`로 상태 조회:
+
+```bash
+curl http://localhost:8000/jobs/<job_id>
+```
+
+완료 시 `output_file`을 다운로드:
+
+```bash
+curl -O http://localhost:8000/outputs/<output_file>
+```
