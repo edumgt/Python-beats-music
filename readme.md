@@ -69,3 +69,16 @@ curl http://localhost:8000/jobs/<job_id>
 ```bash
 curl -O http://localhost:8000/outputs/<output_file>
 ```
+
+
+## 온라인 MP3 변환 스모크 테스트
+
+아래 스크립트로 온라인 MP3를 다운로드한 뒤 WAV로 변환하는 기본 점검을 할 수 있습니다.
+
+```bash
+python online_mp3_convert_test.py \
+  --url "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+```
+
+- 출력 위치: `data/manual_test/sample.mp3`, `data/manual_test/sample.wav`
+- 필요 조건: `ffmpeg` 바이너리 + 외부 네트워크 접근
