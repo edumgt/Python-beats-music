@@ -1,55 +1,55 @@
 # Python Beats Music2
 
-이 프로젝트는 **Python 기반의 오디오/비디오 편집 및 비트 제작 스크립트 모음**입니다.  
-기존 스크립트 방식은 유지하면서, MP3 업로드 기반의 **AI 편곡 백엔드(FastAPI + Celery)** 를 추가했습니다.
+이 프로젝트는 **Python 기반의 오디오/비디오 편집 및 비트 제작 스크립트 모음**이며,
+현재는 MP3 업로드 기반의 **AI 편곡 백엔드(FastAPI + Celery)** 와
+**ML 학습 데이터 생성/학습 파이프라인(분리 Docker 환경)** 까지 포함합니다.
 
 ## 기술 스택
 
-### 1) 언어/실행 환경
-- **Python 3.11**
-- 스크립트 중심 CLI 실행 + FastAPI 서비스
+### 1) 서비스 런타임
+- Python 3.11
+- FastAPI + Uvicorn
+- Celery + Redis
+- pydub + ffmpeg
 
-### 2) 백엔드/API
-- **FastAPI + Uvicorn**: 업로드/상태 조회/다운로드 API
-- **Celery + Redis**: 비동기 오디오 작업 큐
-- **Pydantic Settings**: 환경변수 설정 관리
-
-### 3) 오디오 처리 핵심
-- **pydub**: MP3 로드/합성/인코딩
-- **ffmpeg**: MP3 처리용 시스템 런타임
-- (기존) **librosa / numpy / scipy / soundfile**: 스크립트 기반 실험 처리
-
-### 4) 기존 유틸 스크립트
-- 비트 제작/루프 생성
-- 오디오 편집(MP3↔WAV, 자르기, 합치기)
-- 영상 보조 처리(오디오 추출)
+### 2) ML 파이프라인 (별도 Docker)
+- Dataset builder: 라벨링된 MP3 폴더 -> 학습 CSV 생성
+- Trainer: scikit-learn 기반 스타일 분류기 학습
+- Runtime profile export: `style_profile.json`을 API/Worker가 읽어 생성 결과에 반영
 
 ---
 
-## 신규 백엔드 아키텍처 요약
+## 아키텍처 요약
 
-- `/jobs`로 MP3 업로드 + `rights_confirmed=true` 확인
-- Celery worker가 원본 재사용 없이 신규 피아노 반주 MP3 생성
-- `/jobs/{job_id}`로 상태 조회 (`queued/processing/done/failed`)
-- `/outputs/{filename}`로 결과 다운로드
+### A. 추론/생성 서비스
+1. `/jobs`로 MP3 업로드
+2. worker가 입력 오디오 특징량 추출
+3. `/data/models/style_profile.json` 이 있으면 최근접 스타일 프리셋 선택
+4. 스타일 프리셋(코드 진행, gain bias, bpm bias)을 반영해 피아노 반주 MP3 생성
 
-> 저작권 리스크를 낮추기 위해, 원본 음원을 직접 변형/재배포하지 않고 길이/분위기만 참고한 신규 피아노 합성 결과물을 생성하도록 구성했습니다.
+### B. ML 학습 파이프라인 (별도 Docker profile)
+1. 라벨링 데이터 준비: `data/labeled/<label_name>/*.mp3`
+2. `tools/build_training_dataset.py` 로 `data/training/dataset.csv` 생성
+3. `ml/training/train_style_profile.py` 로 학습 실행
+4. 산출물:
+   - `data/models/style_classifier.joblib` (학습 모델)
+   - `data/models/style_profile.json` (런타임 반영 파일)
 
 ---
 
-## 빠른 시작 (Docker Compose)
+## 빠른 시작 (서비스)
 
 ```bash
 cp .env.example .env
-mkdir -p data/uploads data/outputs
+mkdir -p data/uploads data/outputs data/models
+
 docker compose up --build
 ```
 
-서버 실행 후:
 - Health: `GET http://localhost:8000/health`
 - API docs: `http://localhost:8000/docs`
 
-### 업로드 예시
+업로드 예시:
 
 ```bash
 curl -X POST http://localhost:8000/jobs \
@@ -58,27 +58,56 @@ curl -X POST http://localhost:8000/jobs \
   -F "dramatic_level=8"
 ```
 
-반환된 `job_id`로 상태 조회:
+---
 
-```bash
-curl http://localhost:8000/jobs/<job_id>
+## ML 학습 데이터 생성
+
+라벨 폴더 구조 예시:
+
+```text
+data/labeled/
+  cinematic/
+    a.mp3
+    b.mp3
+  dance/
+    c.mp3
+  lofi/
+    d.mp3
 ```
 
-완료 시 `output_file`을 다운로드:
+CSV 생성:
 
 ```bash
-curl -O http://localhost:8000/outputs/<output_file>
+python tools/build_training_dataset.py \
+  --labeled-root data/labeled \
+  --output-csv data/training/dataset.csv
 ```
 
+---
+
+## 별도 Docker 환경에서 학습 실행
+
+아래 명령은 `trainer` 컨테이너만 일회성 실행합니다.
+
+```bash
+docker compose --profile training run --rm trainer \
+  python ml/training/train_style_profile.py \
+  --dataset-csv /data/training/dataset.csv \
+  --model-out /data/models/style_classifier.joblib \
+  --profile-out /data/models/style_profile.json
+```
+
+`style_profile.json`이 생성되면, API/Worker는 해당 파일을 자동으로 읽어
+다음 작업부터 스타일 프리셋을 반영합니다.
+
+---
 
 ## 온라인 MP3 변환 스모크 테스트
-
-아래 스크립트로 온라인 MP3를 다운로드한 뒤 WAV로 변환하는 기본 점검을 할 수 있습니다.
 
 ```bash
 python online_mp3_convert_test.py \
   --url "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
 ```
 
-- 출력 위치: `data/manual_test/sample.mp3`, `data/manual_test/sample.wav`
-- 필요 조건: `ffmpeg` 바이너리 + 외부 네트워크 접근
+- 출력: `data/manual_test/sample.mp3`, `data/manual_test/sample.wav`
+- 필요 조건: `ffmpeg` + 외부 네트워크

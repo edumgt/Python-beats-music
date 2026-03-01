@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     upload_dir: Path = Path("/data/uploads")
     output_dir: Path = Path("/data/outputs")
     max_upload_mb: int = 200
+    model_profile_path: Path = Path("/data/models/style_profile.json")
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

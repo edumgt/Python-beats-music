@@ -1,0 +1,18 @@
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /workspace
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY ml/training/requirements.txt /tmp/requirements-trainer.txt
+RUN pip install --no-cache-dir -r /tmp/requirements-trainer.txt
+
+COPY app ./app
+COPY ml ./ml
+
+CMD ["python", "ml/training/train_style_profile.py", "--help"]
